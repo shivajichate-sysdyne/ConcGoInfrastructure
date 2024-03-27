@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "siteName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Azure Web App"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/sites/siteextensions",
+      "apiVersion": "2021-02-01",
+      "name": "[concat(parameters('siteName'), '/IISManager')]",
+      "location": "[resourceGroup().location]",
+      "properties": {}
+    }
+  ]
+}
