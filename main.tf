@@ -23,6 +23,10 @@ resource "azurerm_windows_web_app" "concretego" {
   location            = var.location
   https_only          = true
 
+ identity {
+    type = "SystemAssigned"
+  }
+
   app_settings = {
     RedisConnectionString = azurerm_redis_cache.concretego-redis_cache.primary_connection_string
     ApplicationInsightsAgent_EXTENSION_VERSION = "~2"
@@ -56,6 +60,7 @@ resource "azurerm_windows_web_app" "concretego" {
 
   }
 }
+
 
 resource "azurerm_application_insights" "concretego-application-insights" {
   tags                = merge(var.tags, {})
@@ -95,12 +100,15 @@ resource "azurerm_windows_web_app" "concretego-api" {
   location            = var.location
   https_only          = true
   client_affinity_enabled = true  # Session Affinity
-
+  identity {
+    type = "SystemAssigned"
+  }
   app_settings = {
     ASPNETCORE_ENVIRONMENT = "${var.env}"
     ApplicationInsightsAgent_EXTENSION_VERSION = "~2"
     APPINSIGHTS_INSTRUMENTATIONKEY = azurerm_application_insights.concretego-api-application-insights.instrumentation_key    
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.concretego-api-application-insights.connection_string
+    KeyVaultUri = azurerm_key_vault.concretego-kv.vault_uri
   }
   connection_string {
     value = var.dbserver_east_au_0
@@ -146,6 +154,7 @@ resource "azurerm_windows_web_app" "concretego-api" {
     ftps_state               = "Disabled"  # Disable FTPS
   }
 }
+
 
 resource "azurerm_redis_cache" "concretego-redis_cache" {
   tags                = merge(var.tags, {})
@@ -254,6 +263,118 @@ resource "aws_route53_record" "concretego_sysdyne_txt_record" {
   ttl       = 300
   records   = [azurerm_windows_web_app.concretego.custom_domain_verification_id]
 }
+
+# Define the Azure Key Vault resource
+resource "azurerm_key_vault" "concretego-kv" {
+  tenant_id           = var.tenant_id
+  tags                = merge(var.tags, {})
+  sku_name            = "standard"
+  resource_group_name = "concretego-${var.rg}"
+  name                = "concretego-${var.suffix}"
+  location            = var.location
+}
+
+resource "azurerm_key_vault_access_policy" "concretego_vnext_full_access" {
+  tenant_id           = var.tenant_id
+  key_vault_id        = azurerm_key_vault.concretego-kv.id
+  object_id           = var.object_id
+  secret_permissions  = ["Get", "List", "Set", "Delete", "Backup", "Restore", "Recover"]
+  key_permissions     = ["Get", "List", "Create", "Update", "Import", "Delete", "Backup", "Restore", "Recover"]
+  certificate_permissions = ["Get", "List", "Create", "Update", "Import", "Delete", "Backup", "Restore", "Recover"]
+}
+
+resource "azurerm_key_vault_access_policy" "concretego_get_list_access" {
+  tenant_id          = var.tenant_id
+  key_vault_id       = azurerm_key_vault.concretego-kv.id
+  object_id          = azurerm_windows_web_app.concretego.identity[0].principal_id
+  secret_permissions = ["Get", "List"]
+}
+
+
+
+resource "azurerm_key_vault_access_policy" "concretego-api_get_list_access" {
+  tenant_id          = var.tenant_id
+  key_vault_id       = azurerm_key_vault.concretego-kv.id
+  object_id          = azurerm_windows_web_app.concretego-api.identity[0].principal_id
+  secret_permissions = ["Get", "List"]
+}
+
+
+
+# Add secrets to the Azure Key Vault
+resource "azurerm_key_vault_secret" "dbserver_central_us" {
+  name         = "ConnectionStrings--DBSERVER-CENTRAL-US"
+  value        = var.dbserver_central_us
+  key_vault_id = azurerm_key_vault.concretego-kv.id
+}
+
+resource "azurerm_key_vault_secret" "dbserver_east_au_0" {
+  name         = "ConnectionStrings--DBSERVER-EAST-AU-0"
+  value        = var.dbserver_east_au_0
+  key_vault_id = azurerm_key_vault.concretego-kv.id
+}
+
+resource "azurerm_key_vault_secret" "dbserver_east_us" {
+  name         = "ConnectionStrings--DBSERVER-EAST-US"
+  value        = var.dbserver_east_us
+  key_vault_id = azurerm_key_vault.concretego-kv.id
+}
+
+resource "azurerm_key_vault_secret" "dbserver_north_central_us" {
+  name         = "ConnectionStrings--DBSERVER-NORTH-CENTRAL-US"
+  value        = var.dbserver_north_central_us
+  key_vault_id = azurerm_key_vault.concretego-kv.id
+}
+
+resource "azurerm_key_vault_secret" "dbserver_north_central_us_0" {
+  name         = "ConnectionStrings--DBSERVER-NORTH-CENTRAL-US-0"
+  value        = var.dbserver_north_central_us_0
+  key_vault_id = azurerm_key_vault.concretego-kv.id
+}
+
+resource "azurerm_key_vault_secret" "dbserver_south_central_us_0" {
+  name         = "ConnectionStrings--DBSERVER-SOUTH-CENTRAL-US-0"
+  value        = var.dbserver_south_central_us_0
+  key_vault_id = azurerm_key_vault.concretego-kv.id
+}
+
+# Add a secret for Blob Storage connection string
+resource "azurerm_key_vault_secret" "blob_connection_string" {
+  name         = "BlobConnectionString"
+  value        = "azurerm_storage_account.concretego-storage_account.primary_blob_connection_string"
+  key_vault_id = azurerm_key_vault.concretego-kv.id
+}
+
+# Add a secret for Blob Storage connection string
+resource "azurerm_key_vault_secret" "sso_client_secret" {
+  for_each     = local.selected_secrets
+  name         = "Sso--ClientSecret"
+  value        = each.value
+  key_vault_id = azurerm_key_vault.concretego-kv.id
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

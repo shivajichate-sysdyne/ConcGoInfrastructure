@@ -45,6 +45,8 @@ variable "app_service_plans" {
   }
 }
 
+
+
 variable "storage_accounts" {
   description = "Map of storage account configurations"
   type        = map(object({
@@ -139,3 +141,14 @@ variable "dbserver_south_central_us_0" {
    type        = string
 }
 
+variable "tenant_id" {
+  description = "tenant_id"
+  type        = string
+  default     = "f2eae34a-d4a2-4d23-a74a-ccb32db66fd4"
+}
+
+variable "object_id" {
+  description = "object_id"
+  type        = string
+  default     = "dfaae0ea-e6c5-404a-93fb-d761f94c38c0"
+}
