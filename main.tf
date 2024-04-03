@@ -1,10 +1,4 @@
 
-# resource "azurerm_resource_group" "concretego-demo" {
-#   tags     = merge(var.tags, {})
-#   name     = "concretego-${var.suffix}"
-#   location = var.location
-# }
-
 
 resource "azurerm_service_plan" "concretego-ASP" {
   tags                = merge(var.tags, {})
@@ -91,7 +85,6 @@ resource "azurerm_template_deployment" "concretego_IISManager" {
   }
 }
 
-
 resource "azurerm_windows_web_app" "concretego-api" {
   tags                = merge(var.tags, {})
   service_plan_id     = azurerm_service_plan.concretego-ASP.id
@@ -100,9 +93,11 @@ resource "azurerm_windows_web_app" "concretego-api" {
   location            = var.location
   https_only          = true
   client_affinity_enabled = true  # Session Affinity
+
   identity {
     type = "SystemAssigned"
   }
+
   app_settings = {
     ASPNETCORE_ENVIRONMENT = "${var.env}"
     ApplicationInsightsAgent_EXTENSION_VERSION = "~2"
@@ -284,20 +279,23 @@ resource "azurerm_key_vault_access_policy" "concretego_vnext_full_access" {
 }
 
 resource "azurerm_key_vault_access_policy" "concretego_get_list_access" {
+  count              = local.object_id_concretego != null ? 1 : 0
+  depends_on         = [azurerm_windows_web_app.concretego] # Ensure concretego is created first
   tenant_id          = var.tenant_id
   key_vault_id       = azurerm_key_vault.concretego-kv.id
-  object_id          = azurerm_windows_web_app.concretego.identity[0].principal_id
+  object_id          = local.object_id_concretego
   secret_permissions = ["Get", "List"]
 }
-
-
 
 resource "azurerm_key_vault_access_policy" "concretego-api_get_list_access" {
+  count              = local.object_id_concretego_api != null ? 1 : 0
+  depends_on         = [azurerm_windows_web_app.concretego-api] # Ensure concretego-api is created first
   tenant_id          = var.tenant_id
   key_vault_id       = azurerm_key_vault.concretego-kv.id
-  object_id          = azurerm_windows_web_app.concretego-api.identity[0].principal_id
+  object_id          = local.object_id_concretego_api
   secret_permissions = ["Get", "List"]
 }
+
 
 
 
